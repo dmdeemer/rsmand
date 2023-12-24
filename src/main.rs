@@ -91,6 +91,9 @@ pub fn main() {
                 Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                     break 'running
                 },
+                Event::KeyDown { keycode: x, ..  } => {
+                    println!( "Key: {x:?}" );
+                },
                 _ => {}
             }
         }
