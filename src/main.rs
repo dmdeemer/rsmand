@@ -5,7 +5,7 @@ use sdl2::event::Event;
 use sdl2::rect::Point;
 use sdl2::keyboard::Keycode;
 use sdl2::render::{Canvas,RenderTarget};
-use std::time::Duration;
+//use std::time::Duration;
 
 fn mand( x: f64, y: f64, max_iter: u64 ) -> f64 {
     let mut z = (x,y);
@@ -56,14 +56,60 @@ fn interpolate( a: f64, b:f64, x:f64) -> u8 {
     ((a + (b-a)*x) * 256.0) as u8
 }
 
-fn draw_mandelbrot<T: RenderTarget>( canvas: &mut Canvas<T>, size: (u32,u32), offset: f64 )
+struct Zoom {
+    center: (f64,f64),
+    zoom: f64 // units: powers of 10.  Zoom 0 = a square 4.0 on a side
+}
+
+impl Default for Zoom {
+    fn default() -> Self {
+        Zoom { center: (0.0,0.0), zoom: 0.0 }
+    }
+}
+
+impl Zoom {
+    fn side( &self ) -> f64 {
+        4.0 * (10.0_f64).powf( -self.zoom )
+    }
+
+    fn up( &mut self ) {
+        self.center.1 = f64::max(-2.0,self.center.1 - 0.1 * self.side() );
+    }
+
+    fn down( &mut self ) {
+        self.center.1 = f64::min(2.0,self.center.1 + 0.1 * self.side() );
+    }
+
+    fn left( &mut self ) {
+        self.center.0 = f64::max(-2.0,self.center.0 - 0.1 * self.side() );
+    }
+
+    fn right( &mut self ) {
+        self.center.0 = f64::min(2.0,self.center.0 + 0.1 * self.side() );
+    }
+
+    fn zoom_in( &mut self ) {
+        self.zoom += 0.1;
+    }
+
+    fn zoom_out( &mut self ) {
+        self.zoom = f64::max( 0.0, self.zoom - 0.1 );
+    }
+}
+
+fn draw_mandelbrot<T: RenderTarget>( canvas: &mut Canvas<T>, size: (u32,u32), zoom: &Zoom, offset: f64 )
 {
     let (w,h) = size;
 
+    let side = zoom.side();
+    let d = 1.0 / (h as f64);
+    let x0 = zoom.center.0 - (size.0/2) as f64 * d * side;
+    let y0 = zoom.center.1 + (size.1/2) as f64 * d * side;
+
     for y in 0..(h as i32) {
-        let cy = y as f64 * 4.0 / (h-1) as f64 - 2.0;
+        let cy = y0 - (y as f64) * d * side;
         for x in 0..(w as i32) {
-            let cx = x as f64 * 4.0 / (w-1) as f64 - 2.0;
+            let cx = x0 + (x as f64) * d * side;
             let iter = mand( cx, cy, 200 );
             let color = colormap(iter + offset);
             canvas.set_draw_color(color);
@@ -84,9 +130,11 @@ pub fn main() {
     let size = window.drawable_size();
     let mut canvas = window.into_canvas().build().unwrap();
 
+    let mut zoom = Zoom::default();
+
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
-    draw_mandelbrot(&mut canvas, size, 0.0);
+    draw_mandelbrot(&mut canvas, size, &zoom, 0.0);
     canvas.present();
 
     //draw_mandelbrot(&mut canvas);
@@ -101,6 +149,12 @@ pub fn main() {
                 Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                     break 'running
                 },
+                Event::KeyDown { keycode: Some(Keycode::Up), .. } => { zoom.down(); },
+                Event::KeyDown { keycode: Some(Keycode::Down), .. } => { zoom.up(); },
+                Event::KeyDown { keycode: Some(Keycode::Left), .. } => { zoom.left(); },
+                Event::KeyDown { keycode: Some(Keycode::Right), .. } => { zoom.right(); },
+                Event::KeyDown { keycode: Some(Keycode::KpPlus), .. } => { zoom.zoom_in(); },
+                Event::KeyDown { keycode: Some(Keycode::KpMinus), .. } => { zoom.zoom_out(); },
                 Event::KeyDown { keycode: x, ..  } => {
                     println!( "Key: {x:?}" );
                 },
@@ -114,7 +168,7 @@ pub fn main() {
         // canvas.set_draw_color(Color::RGB(255, 255, 0));
         // canvas.draw_point(Point::new(40,40)).unwrap();
         let offset = i as f64 / 32.0;
-        draw_mandelbrot(&mut canvas, size, offset);
+        draw_mandelbrot(&mut canvas, size, &zoom, offset);
         canvas.present();
 
 //        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
