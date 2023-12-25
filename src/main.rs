@@ -7,11 +7,11 @@ use sdl2::keyboard::Keycode;
 use sdl2::render::{Canvas,RenderTarget};
 //use std::time::Duration;
 
-fn mand( x: f64, y: f64, max_iter: u64 ) -> f64 {
+fn mand( x: f64, y: f64, max_iter: u64 ) -> Option<f64> {
     let mut z = (x,y);
     let mut prev_dist = x*x+y*y;
 
-    if prev_dist > 4.0 { return 1.0; }
+    if prev_dist > 4.0 { return Some(1.0); }
 
     for iter in 0..max_iter {
         let (zx,zy) = z;
@@ -20,30 +20,39 @@ fn mand( x: f64, y: f64, max_iter: u64 ) -> f64 {
         let zxy = zx * zy;
         let dist = zxx+zyy;
         if dist > 4.0 {
-            return iter as f64 + (4.0 - prev_dist) / (dist - prev_dist);
+            let dist = dist.sqrt();
+            let prev_dist = prev_dist.sqrt();
+            return Some(iter as f64 + (2.0 - prev_dist) / (dist - prev_dist));
         }
         prev_dist = dist;
 
         z = (zxx - zyy + x, 2.0*zxy + y);
     }
 
-    max_iter as f64
+    None
 }
 
-fn colormap( iter: f64 ) -> Color {
-    static MAP_TABLE: &[(f64,f64,f64); 16] = &[
-        (0.5,0.0,0.0),(0.5,0.3,0.0),(0.5,0.5,0.0),
-        (0.0,0.5,0.0),(0.0,0.5,0.5),(0.0,0.0,0.5),
-        (0.5,0.0,0.5),(0.5,0.5,0.5),
-        (1.0,0.0,0.0),(1.0,0.5,0.0),(1.0,1.0,0.0),
-        (0.0,1.0,0.0),(0.0,1.0,1.0),(0.0,0.0,1.0),
-        (1.0,0.0,1.0),(1.0,1.0,1.0),
+fn colormap( iter: Option<f64>, rotation: f64 ) -> Color {
+    static MAP_TABLE: &[(u8,u8,u8); 5] = &[
+        (184,141,242), (242,133,226), (236,218,242), (68,50,227), (240,49,97)
     ];
+    // static MAP_TABLE: &[(f64,f64,f64); 16] = &[
+    //     (0.5,0.0,0.0),(0.5,0.3,0.0),(0.5,0.5,0.0),
+    //     (0.0,0.5,0.0),(0.0,0.5,0.5),(0.0,0.0,0.5),
+    //     (0.5,0.0,0.5),(0.5,0.5,0.5),
+    //     (1.0,0.0,0.0),(1.0,0.5,0.0),(1.0,1.0,0.0),
+    //     (0.0,1.0,0.0),(0.0,1.0,1.0),(0.0,0.0,1.0),
+    //     (1.0,0.0,1.0),(1.0,1.0,1.0),
+    // ];
 
+    let n: usize = MAP_TABLE.len();
+    if iter.is_none() { return Color::BLACK; }
+
+    let iter: f64 = iter.unwrap() * 0.2 + rotation * n as f64;
     let i = iter as usize;
     let f = iter - i as f64;
-    let (r1,b1,g1) = MAP_TABLE[i % 16];
-    let (r2,b2,g2) = MAP_TABLE[(i+1) % 16];
+    let (r1,g1,b1) = MAP_TABLE[i % n];
+    let (r2,g2,b2) = MAP_TABLE[(i+1) % n];
 
     let r = interpolate(r1,r2,f);
     let g = interpolate(g1,g2,f);
@@ -52,8 +61,10 @@ fn colormap( iter: f64 ) -> Color {
     Color::RGB( r, g, b )
 }
 
-fn interpolate( a: f64, b:f64, x:f64) -> u8 {
-    ((a + (b-a)*x) * 256.0) as u8
+fn interpolate( a:u8, b:u8, x:f64) -> u8 {
+    let a = a as f64;
+    let b = b as f64;
+    ((a + (b-a)*x)) as u8
 }
 
 struct Zoom {
@@ -111,7 +122,7 @@ fn draw_mandelbrot<T: RenderTarget>( canvas: &mut Canvas<T>, size: (u32,u32), zo
         for x in 0..(w as i32) {
             let cx = x0 + (x as f64) * d * side;
             let iter = mand( cx, cy, 200 );
-            let color = colormap(iter + offset);
+            let color = colormap(iter, offset);
             canvas.set_draw_color(color);
             canvas.draw_point(Point::new(x,y)).unwrap();
         }
@@ -167,7 +178,7 @@ pub fn main() {
         // canvas.clear();
         // canvas.set_draw_color(Color::RGB(255, 255, 0));
         // canvas.draw_point(Point::new(40,40)).unwrap();
-        let offset = i as f64 / 32.0;
+        let offset = i as f64 / 1024.0;
         draw_mandelbrot(&mut canvas, size, &zoom, offset);
         canvas.present();
 
