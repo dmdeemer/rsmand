@@ -7,46 +7,56 @@ use sdl2::keyboard::Keycode;
 use sdl2::render::{Canvas,RenderTarget};
 use std::time::Duration;
 
-fn mand( x: f64, y: f64, max_iter: u64 ) -> u64 {
-    let mut iter = 0;
-
+fn mand( x: f64, y: f64, max_iter: u64 ) -> f64 {
     let mut z = (x,y);
+    let mut prev_dist = x*x+y*y;
 
-    while iter < max_iter {
+    if prev_dist > 4.0 { return 1.0; }
+
+    for iter in 0..max_iter {
         let (zx,zy) = z;
         let zxx = zx * zx;
         let zyy = zy * zy;
         let zxy = zx * zy;
-        if (zxx+zyy) > 4.0 { break; }
+        let dist = zxx+zyy;
+        if dist > 4.0 {
+            return iter as f64 + (4.0 - prev_dist) / (dist - prev_dist);
+        }
+        prev_dist = dist;
+
         z = (zxx - zyy + x, 2.0*zxy + y);
-        iter += 1;
     }
 
-    iter
+    max_iter as f64
 }
 
-fn colormap( iter: u64 ) -> Color {
-    static MAP_TABLE: &[u32; 32] = &[
-        0x00770000, 0x00ff0000, 0x00770000, 0x00ff0000, // red
-        0x00774400, 0x00ff8800, 0x00774400, 0x00ff8800, // orange
-        0x00777700, 0x00ffff00, 0x00777700, 0x00ffff00, // yellow
-        0x00007700, 0x0000ff00, 0x00007700, 0x0000ff00, // gren
-        0x00007777, 0x0000ffff, 0x00007777, 0x0000ffff, // cyan
-        0x00000077, 0x000000ff, 0x00000077, 0x000000ff, // blue
-        0x00770077, 0x00ff00ff, 0x00770077, 0x00ff00ff, // purple
-        0x00777777, 0x00ffffff, 0x00777777, 0x00ffffff, // white
+fn colormap( iter: f64 ) -> Color {
+    static MAP_TABLE: &[(f64,f64,f64); 16] = &[
+        (0.5,0.0,0.0),(0.5,0.3,0.0),(0.5,0.5,0.0),
+        (0.0,0.5,0.0),(0.0,0.5,0.5),(0.0,0.0,0.5),
+        (0.5,0.0,0.5),(0.5,0.5,0.5),
+        (1.0,0.0,0.0),(1.0,0.5,0.0),(1.0,1.0,0.0),
+        (0.0,1.0,0.0),(0.0,1.0,1.0),(0.0,0.0,1.0),
+        (1.0,0.0,1.0),(1.0,1.0,1.0),
     ];
 
-    let color: u32 = MAP_TABLE[ (iter & 31) as usize ];
+    let i = iter as usize;
+    let f = iter - i as f64;
+    let (r1,b1,g1) = MAP_TABLE[i % 16];
+    let (r2,b2,g2) = MAP_TABLE[(i+1) % 16];
 
-    Color::RGBA(
-        ((color >> 16) & 0xFF) as u8,
-        ((color >> 8) & 0xFF) as u8,
-        (color & 0xFF) as u8, 255)
+    let r = interpolate(r1,r2,f);
+    let g = interpolate(g1,g2,f);
+    let b = interpolate(b1,b2,f);
+
+    Color::RGB( r, g, b )
 }
 
+fn interpolate( a: f64, b:f64, x:f64) -> u8 {
+    ((a + (b-a)*x) * 256.0) as u8
+}
 
-fn draw_mandelbrot<T: RenderTarget>( canvas: &mut Canvas<T>, size: (u32,u32), counter: u64 )
+fn draw_mandelbrot<T: RenderTarget>( canvas: &mut Canvas<T>, size: (u32,u32), offset: f64 )
 {
     let (w,h) = size;
 
@@ -55,7 +65,7 @@ fn draw_mandelbrot<T: RenderTarget>( canvas: &mut Canvas<T>, size: (u32,u32), co
         for x in 0..(w as i32) {
             let cx = x as f64 * 4.0 / (w-1) as f64 - 2.0;
             let iter = mand( cx, cy, 200 );
-            let color = colormap(iter + counter);
+            let color = colormap(iter + offset);
             canvas.set_draw_color(color);
             canvas.draw_point(Point::new(x,y)).unwrap();
         }
@@ -76,7 +86,7 @@ pub fn main() {
 
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
-    draw_mandelbrot(&mut canvas, size, 0);
+    draw_mandelbrot(&mut canvas, size, 0.0);
     canvas.present();
 
     //draw_mandelbrot(&mut canvas);
@@ -84,7 +94,7 @@ pub fn main() {
     let mut event_pump = sdl_context.event_pump().unwrap();
     let mut i = 0;
     'running: loop {
-        i = (i + 1) % 32;
+        i = (i + 1) % 1024;
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} |
@@ -103,9 +113,10 @@ pub fn main() {
         // canvas.clear();
         // canvas.set_draw_color(Color::RGB(255, 255, 0));
         // canvas.draw_point(Point::new(40,40)).unwrap();
-        draw_mandelbrot(&mut canvas, size, i);
+        let offset = i as f64 / 32.0;
+        draw_mandelbrot(&mut canvas, size, offset);
         canvas.present();
 
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+//        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
 }
