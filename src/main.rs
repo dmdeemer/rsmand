@@ -32,6 +32,39 @@ fn mand( x: f64, y: f64, max_iter: u64 ) -> Option<f64> {
     None
 }
 
+fn mand2( c: (f64,f64), orbit: Vec<(f64,f64)>, max_iter: usize ) -> Option<f64> {
+    let mut d = c;
+    let (dx,dy) = d;
+    let (zx,zy) = orbit[0];
+    let dist_x = dx + zx;
+    let dist_y = dy + zy;
+    let mut prev_dist_sq = dist_x * dist_x + dist_y * dist_y;
+    if prev_dist_sq > 4.0 { return Some(1.0); }
+
+    let max_iter = usize::min(max_iter, orbit.len());
+
+    for iter in 1..max_iter {
+        let (dx,dy) = d;
+        let (zx,zy) = orbit[iter];
+        d = ( dx*dx - dy*dy + 2.0*(zx*dx + zy*dy) + c.0,
+              2.0*(dx*dy + zx*dy + zy*dx) + c.1 );
+        let (dx,dy) = d;
+        let dist_x = dx + zx;
+        let dist_y = dy + zy;
+        let dist_sq = dist_x * dist_x + dist_y * dist_y;
+        if dist_sq > 4.0 {
+            let dist = dist_sq.sqrt();
+            let prev_dist = prev_dist_sq.sqrt();
+            return Some(iter as f64 + (2.0 - prev_dist) / (dist - prev_dist));
+        }
+        prev_dist_sq = dist_sq;
+    }
+
+    None
+}
+
+
+
 fn colormap( iter: Option<f64>, rotation: f64 ) -> Color {
     static MAP_TABLE: &[(u8,u8,u8); 5] = &[
         (184,141,242), (242,133,226), (236,218,242), (68,50,227), (240,49,97)
@@ -134,7 +167,7 @@ pub fn main() {
     let video_subsystem = sdl_context.video().unwrap();
 
     let window = video_subsystem.window("Mandelbrot", 800, 600)
-        .position_centered()
+//        .position_centered()
         .build()
         .unwrap();
 

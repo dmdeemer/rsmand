@@ -1,0 +1,37 @@
+Z = Z^2 + C
+
+P = Z+D
+
+Z+D = (Z+D)^2 + (C+D0)
+Z+D = Z^2 + 2ZD + D^2 + C+D0
+Z = Z^2 + C
+
+D = D^2 + D0 + 2ZD
+
+D = dx + dy*i
+Z = zx + zy*i
+D0 = Dx0 + Dy0 * i
+
+D = (dx + dy*i)^2 + d0x + d0y*i + 2(zx + zy*i)(dx + dy*i)
+  = dx*dx + 2*dx*dy*i - dy*dy + d0x + d0y*i + 2(zx*dx + zx*dy*i + zy*dx*i - zy*dy)
+
+dx = dx*dx - dy*dy + 2.0*(zx*dx + zy*dy) + d0x
+dy = 2.0*(dx*dy + zx*dy + zy*dx) + d0y
+dist_sq = (dx+zx)(dx+zx) + (dy+zy)(dy*zy)
+
+zx + zy*i = (zx+zy*i)^2 * cx+cy*i
+zx + zy*i = zx*zx + 2*zy*zx*i - zy*zy * cx + cy*i
+
+zx = zx*zx - zy*zy + cx
+zy = 2*zx*zy + cy
+
+
+
+z = z^2 + c + 2Zz
+
+
+Zz = Zx*zx + Zy*zx*i + Zy*zx+i - Zy*zy
+
+zx = zx*zx - zy-zy + 2*(Zx*zx - Zy*zy) + cx
+zy = 2*(zx*zy + Zx*zy + Zy*zx) + cy
+
