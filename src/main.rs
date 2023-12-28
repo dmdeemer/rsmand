@@ -6,7 +6,9 @@ use sdl2::rect::Rect;
 use sdl2::keyboard::{Keycode,Mod};
 use sdl2::render::Canvas;
 use sdl2::video::Window;
-//use std::time::Duration;
+use std::time::Duration;
+use std::thread::sleep;
+use std::time::Instant;
 use rayon::prelude::*;
 
 #[target_feature(enable = "avx2")]
@@ -233,10 +235,13 @@ pub fn main() {
 
     //draw_mandelbrot(&mut canvas);
 
+    let max_frames_per_sec = 30.0;
+    let min_frame_time = Duration::from_secs_f64(1.0/max_frames_per_sec);
+    let mut tick = Instant::now();
+
     let mut event_pump = sdl_context.event_pump().unwrap();
     let mut i = 0;
     'running: loop {
-        i = (i + 10) % 1024;
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} => { break 'running; },
@@ -272,5 +277,17 @@ pub fn main() {
         let offset = i as f64 / 1024.0;
         draw_mandelbrot(&mut canvas, size, &mut zoom, offset );
         canvas.present();
+        let now = Instant::now();
+        let mut frame_duration = now - tick;
+        if frame_duration < min_frame_time {
+            sleep( min_frame_time - frame_duration);
+            tick += min_frame_time;
+            frame_duration = min_frame_time;
+        }
+        else {
+            tick = now;
+        }
+        i += f64::round( frame_duration.as_secs_f64() / min_frame_time.as_secs_f64() * 2.0 ) as i32;
+        i %= 1024;
     }
 }
