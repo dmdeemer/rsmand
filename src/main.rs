@@ -9,8 +9,8 @@ use sdl2::video::Window;
 //use std::time::Duration;
 use rayon::prelude::*;
 
-
-fn mand( x: f64, y: f64, max_iter: u64 ) -> Option<f64> {
+#[target_feature(enable = "avx2")]
+unsafe fn mand( x: f64, y: f64, max_iter: u64 ) -> Option<f64> {
     let mut z = (x,y);
     let mut prev_dist = x*x+y*y;
 
@@ -35,7 +35,8 @@ fn mand( x: f64, y: f64, max_iter: u64 ) -> Option<f64> {
     None
 }
 
-fn colormap( iter: Option<f64>, rotation: f64 ) -> Color {
+#[target_feature(enable = "avx2")]
+unsafe fn colormap( iter: Option<f64>, rotation: f64 ) -> Color {
     static MAP_TABLE: &[(u8,u8,u8); 5] = &[
         (184,141,242), (242,133,226), (236,218,242), (68,50,227), (240,49,97)
     ];
@@ -163,7 +164,8 @@ impl Zoom {
 
 }
 
-fn draw_row_rgba32( tex: &mut [u8], zoom: &Zoom, y: usize, offset: f64 )
+#[target_feature(enable = "avx2")]
+unsafe fn draw_row_rgba32( tex: &mut [u8], zoom: &Zoom, y: usize, offset: f64 )
 {
     let cy = zoom.get_cy(y);
     for x in 0..(zoom.size.0 as usize) {
@@ -195,7 +197,7 @@ fn draw_mandelbrot( canvas: &mut Canvas<Window>, size: (u32,u32), zoom: &mut Zoo
         tex.par_chunks_mut(stride)
            .take(h as usize)
            .enumerate()
-           .for_each(|(y,row)| draw_row_rgba32(row, zoom, y, offset) );
+           .for_each(|(y,row)| unsafe { draw_row_rgba32(row, zoom, y, offset); } );
 
     }).unwrap();
 
