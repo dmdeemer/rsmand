@@ -1,5 +1,5 @@
 [package]
-name = "x11rb"
+name = "rsmand"
 version = "0.1.0"
 edition = "2021"
 
