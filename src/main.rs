@@ -1,6 +1,6 @@
 extern crate sdl2;
 
-use sdl2::pixels::Color;
+use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::event::Event;
 use sdl2::rect::Rect;
 use sdl2::keyboard::Keycode;
@@ -185,7 +185,7 @@ fn draw_mandelbrot( canvas: &mut Canvas<Window>, size: (u32,u32), zoom: &mut Zoo
 
     let texture_creator = canvas.texture_creator();
     let mut texture = texture_creator
-        .create_texture_streaming(texture_creator.default_pixel_format(), w, h)
+        .create_texture_streaming(Some(PixelFormatEnum::RGBA32), w, h)
         .unwrap();
 
     texture.with_lock(Rect::new(0, 0, w, h), |tex: &mut [u8], stride: usize| {
