@@ -202,8 +202,6 @@ pub fn main() {
 
     let mut zoom = Zoom::default();
 
-    let mut max_iter: u64 = 128;
-
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
     draw_mandelbrot(&mut canvas, size, &mut zoom, 0.0 );
