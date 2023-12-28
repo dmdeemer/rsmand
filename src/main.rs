@@ -7,6 +7,8 @@ use sdl2::keyboard::{Keycode,Mod};
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 //use std::time::Duration;
+use rayon::prelude::*;
+
 
 fn mand( x: f64, y: f64, max_iter: u64 ) -> Option<f64> {
     let mut z = (x,y);
@@ -49,7 +51,7 @@ fn colormap( iter: Option<f64>, rotation: f64 ) -> Color {
     let n: usize = MAP_TABLE.len();
     if iter.is_none() { return Color::BLACK; }
 
-    let iter: f64 = iter.unwrap() * 0.2 + rotation * n as f64;
+    let iter: f64 = iter.unwrap() * 0.05 + rotation * n as f64;
     let i = iter as usize;
     let f = iter - i as f64;
     let (r1,g1,b1) = MAP_TABLE[i % n];
@@ -161,7 +163,7 @@ impl Zoom {
 
 }
 
-fn draw_row( tex: &mut [u8], zoom: &Zoom, y: usize, offset: f64 )
+fn draw_row_rgba32( tex: &mut [u8], zoom: &Zoom, y: usize, offset: f64 )
 {
     let cy = zoom.get_cy(y);
     for x in 0..(zoom.size.0 as usize) {
@@ -189,9 +191,12 @@ fn draw_mandelbrot( canvas: &mut Canvas<Window>, size: (u32,u32), zoom: &mut Zoo
         .unwrap();
 
     texture.with_lock(Rect::new(0, 0, w, h), |tex: &mut [u8], stride: usize| {
-        for y in 0..(h as usize) {
-                draw_row( &mut tex[y*stride .. (y+1)*stride], zoom, y, offset );
-        }
+
+        tex.par_chunks_mut(stride)
+           .take(h as usize)
+           .enumerate()
+           .for_each(|(y,row)| draw_row_rgba32(row, zoom, y, offset) );
+
     }).unwrap();
 
     canvas.copy(&mut texture, None, None).unwrap();
