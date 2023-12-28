@@ -76,12 +76,23 @@ struct Zoom {
     delta: f64,
     x0: f64,
     y0: f64,
-    max_iter: u64
+    max_iter: u64,
+    resolution: u32  // Divisor from full screen resolution
 }
 
 impl Default for Zoom {
     fn default() -> Self {
-        Zoom { center: (0.0,0.0), zoom: 0.0, size: (0,0), side: 4.0, delta: 0.0, x0: 0.0, y0: 0.0, max_iter: 200 }
+        Zoom {
+            center: (0.0,0.0),
+            zoom: 0.0,
+            size: (0,0),
+            side: 4.0,
+            delta: 0.0,
+            x0: 0.0,
+            y0: 0.0,
+            max_iter: 200,
+            resolution: 4,
+        }
     }
 }
 
@@ -118,6 +129,11 @@ impl Zoom {
     fn more_iter( &mut self, inc: u64 ) { self.max_iter += inc; }
 
     fn less_iter( &mut self, dec: u64 ) { self.max_iter = u64::max( 2, self.max_iter - dec ); }
+
+    fn more_resolution( &mut self ) { self.resolution = u32::max( 2, self.resolution - 1 ); }
+
+    fn less_resolution( &mut self ) { self.resolution += 1; }
+
 
     fn set_size( &mut self, sz: (u32,u32) ) {
         self.size = sz;
@@ -162,7 +178,7 @@ fn draw_row( tex: &mut [u8], zoom: &Zoom, y: usize, offset: f64 )
 fn draw_mandelbrot( canvas: &mut Canvas<Window>, size: (u32,u32), zoom: &mut Zoom, offset: f64 )
 {
     let (w,h) = size;
-    let (w,h) = (w/4,h/4);
+    let (w,h) = (w/zoom.resolution,h/zoom.resolution);
 
     zoom.set_size((w,h));
     let zoom: &Zoom = zoom; // Drop mutability
@@ -234,6 +250,8 @@ pub fn main() {
                         Keycode::PageUp   => { zoom.more_iter(25); },
                         Keycode::Kp3 |
                         Keycode::PageDown => { zoom.less_iter(25); },
+                        Keycode::Period   => { zoom.more_resolution(); },
+                        Keycode::Comma    => { zoom.less_resolution(); },
                         Keycode::Equals   => { zoom.print(); },
                         _ => { println!( "Key: {key:?}" ) }
                     }
