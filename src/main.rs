@@ -3,7 +3,7 @@ extern crate sdl2;
 use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::event::Event;
 use sdl2::rect::Rect;
-use sdl2::keyboard::Keycode;
+use sdl2::keyboard::{Keycode,Mod};
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 //use std::time::Duration;
@@ -233,8 +233,9 @@ pub fn main() {
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} => { break 'running; },
-                Event::KeyDown { keycode: Some(key), .. } => {
+                Event::KeyDown { keycode: Some(key), keymod: m, repeat: false, .. } => {
                     match key {
+                        Keycode::Q        => { if m == Mod::LCTRLMOD { break 'running; } },
                         Keycode::Escape   => { break 'running; },
                         Keycode::Kp8 |
                         Keycode::Up       => { zoom.down(); },
@@ -253,24 +254,16 @@ pub fn main() {
                         Keycode::Period   => { zoom.more_resolution(); },
                         Keycode::Comma    => { zoom.less_resolution(); },
                         Keycode::Equals   => { zoom.print(); },
-                        _ => { println!( "Key: {key:?}" ) }
+                        _ => { println!( "Key: {key:?} Mod: {m:?}" ) }
                     }
                 },
                 _ => {}
             }
         }
-        // The rest of the game loop goes here...
-
-
-        // canvas.clear();
-        // canvas.set_draw_color(Color::RGB(255, 255, 0));
-        // canvas.draw_point(Point::new(40,40)).unwrap();
-
         //::std::thread::sleep(Duration::new(0, 1_000_000_000u32));
 
         let offset = i as f64 / 1024.0;
         draw_mandelbrot(&mut canvas, size, &mut zoom, offset );
         canvas.present();
-
     }
 }
