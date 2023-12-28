@@ -2,9 +2,10 @@ extern crate sdl2;
 
 use sdl2::pixels::Color;
 use sdl2::event::Event;
-use sdl2::rect::Point;
+use sdl2::rect::Rect;
 use sdl2::keyboard::Keycode;
-use sdl2::render::{Canvas,RenderTarget};
+use sdl2::render::Canvas;
+use sdl2::video::Window;
 //use std::time::Duration;
 
 fn mand( x: f64, y: f64, max_iter: u64 ) -> Option<f64> {
@@ -13,7 +14,7 @@ fn mand( x: f64, y: f64, max_iter: u64 ) -> Option<f64> {
 
     if prev_dist > 4.0 { return Some(1.0); }
 
-    for iter in 0..max_iter {
+    for iter in 0..=max_iter {
         let (zx,zy) = z;
         let zxx = zx * zx;
         let zyy = zy * zy;
@@ -69,72 +70,130 @@ fn interpolate( a:u8, b:u8, x:f64) -> u8 {
 
 struct Zoom {
     center: (f64,f64),
-    zoom: f64 // units: powers of 10.  Zoom 0 = a square 4.0 on a side
+    zoom: f64, // units: powers of 10.  Zoom 0 = a square 4.0 on a side
+    size: (u32,u32),
+    side: f64,
+    delta: f64,
+    x0: f64,
+    y0: f64,
+    max_iter: u64
 }
 
 impl Default for Zoom {
     fn default() -> Self {
-        Zoom { center: (0.0,0.0), zoom: 0.0 }
+        Zoom { center: (0.0,0.0), zoom: 0.0, size: (0,0), side: 4.0, delta: 0.0, x0: 0.0, y0: 0.0, max_iter: 200 }
     }
 }
 
 impl Zoom {
-    fn side( &self ) -> f64 {
-        4.0 * (10.0_f64).powf( -self.zoom )
-    }
-
     fn up( &mut self ) {
-        self.center.1 = f64::max(-2.0,self.center.1 - 0.1 * self.side() );
+        self.center.1 = f64::max(-2.0,self.center.1 - 0.1 * self.side );
     }
 
     fn down( &mut self ) {
-        self.center.1 = f64::min(2.0,self.center.1 + 0.1 * self.side() );
+        self.center.1 = f64::min(2.0,self.center.1 + 0.1 * self.side );
     }
 
     fn left( &mut self ) {
-        self.center.0 = f64::max(-2.0,self.center.0 - 0.1 * self.side() );
+        self.center.0 = f64::max(-2.0,self.center.0 - 0.1 * self.side );
     }
 
     fn right( &mut self ) {
-        self.center.0 = f64::min(2.0,self.center.0 + 0.1 * self.side() );
+        self.center.0 = f64::min(2.0,self.center.0 + 0.1 * self.side );
     }
 
+    fn calc_side(zoom: f64) -> f64 {
+        4.0 * (10.0_f64).powf( -zoom )
+    }
     fn zoom_in( &mut self ) {
         self.zoom += 0.1;
+        self.side = Zoom::calc_side(self.zoom);
     }
 
     fn zoom_out( &mut self ) {
         self.zoom = f64::max( 0.0, self.zoom - 0.1 );
+        self.side = Zoom::calc_side(self.zoom);
+    }
+
+    fn more_iter( &mut self, inc: u64 ) { self.max_iter += inc; }
+
+    fn less_iter( &mut self, dec: u64 ) { self.max_iter = u64::max( 2, self.max_iter - dec ); }
+
+    fn set_size( &mut self, sz: (u32,u32) ) {
+        self.size = sz;
+        self.delta = 1.0 / (sz.1 as f64);
+
+        self.x0 = self.center.0 - (sz.0/2) as f64 * self.delta * self.side;
+        self.y0 = self.center.1 + 0.5 * self.side;
+    }
+
+    fn get_cx( &self, x: usize ) -> f64 {
+        self.x0 + (x as f64) * self.delta * self.side
+    }
+
+    fn get_cy( &self, y: usize ) -> f64 {
+        self.y0 - (y as f64) * self.delta * self.side
+    }
+
+    fn print( &self ) {
+        println!( "Zoom: ({},{}), zoom=10^{}, maxiter={}",
+            self.center.0,
+            self.center.1,
+            self.zoom,
+            self.max_iter );
+    }
+
+}
+
+fn draw_row( tex: &mut [u8], zoom: &Zoom, y: usize, offset: f64 )
+{
+    let cy = zoom.get_cy(y);
+    for x in 0..(zoom.size.0 as usize) {
+        let cx = zoom.get_cx(x);
+        let iter = mand( cx, cy, zoom.max_iter );
+        let color = colormap(iter, offset);
+        tex[x*4+0]=color.b;
+        tex[x*4+1]=color.g;
+        tex[x*4+2]=color.r;
+        tex[x*4+3]=255;
     }
 }
 
-fn draw_mandelbrot<T: RenderTarget>( canvas: &mut Canvas<T>, size: (u32,u32), zoom: &Zoom, offset: f64 )
+fn draw_mandelbrot( canvas: &mut Canvas<Window>, size: (u32,u32), zoom: &mut Zoom, offset: f64 )
 {
     let (w,h) = size;
+    let (w,h) = (w/4,h/4);
 
-    let side = zoom.side();
-    let d = 1.0 / (h as f64);
-    let x0 = zoom.center.0 - (size.0/2) as f64 * d * side;
-    let y0 = zoom.center.1 + (size.1/2) as f64 * d * side;
+    zoom.set_size((w,h));
+    let zoom: &Zoom = zoom; // Drop mutability
 
-    for y in 0..(h as i32) {
-        let cy = y0 - (y as f64) * d * side;
-        for x in 0..(w as i32) {
-            let cx = x0 + (x as f64) * d * side;
-            let iter = mand( cx, cy, 200 );
-            let color = colormap(iter, offset);
-            canvas.set_draw_color(color);
-            canvas.draw_point(Point::new(x,y)).unwrap();
+    let texture_creator = canvas.texture_creator();
+    let mut texture = texture_creator
+        .create_texture_streaming(texture_creator.default_pixel_format(), w, h)
+        .unwrap();
+
+    texture.with_lock(Rect::new(0, 0, w, h), |tex: &mut [u8], stride: usize| {
+        for y in 0..(h as usize) {
+                draw_row( &mut tex[y*stride .. (y+1)*stride], zoom, y, offset );
         }
-    }
+    }).unwrap();
+
+    canvas.copy(&mut texture, None, None).unwrap();
 }
 
 pub fn main() {
     let sdl_context = sdl2::init().unwrap();
+
     let video_subsystem = sdl_context.video().unwrap();
 
-    let window = video_subsystem.window("Mandelbrot", 800, 600)
-        .position_centered()
+    println!( "Num Video Displays: {}", video_subsystem.num_video_displays().unwrap() );
+
+    println!( "Video Driver: {}", video_subsystem.current_video_driver() );
+
+    let window_sz = video_subsystem.display_bounds(0).unwrap();
+    let window = video_subsystem.window("Mandelbrot", window_sz.width(), window_sz.height())
+        .resizable()
+//        .maximized()
         .build()
         .unwrap();
 
@@ -143,9 +202,12 @@ pub fn main() {
 
     let mut zoom = Zoom::default();
 
+    let mut max_iter: u64 = 128;
+
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
-    draw_mandelbrot(&mut canvas, size, &zoom, 0.0);
+    draw_mandelbrot(&mut canvas, size, &mut zoom, 0.0 );
+    println!( "First Frame." );
     canvas.present();
 
     //draw_mandelbrot(&mut canvas);
@@ -153,21 +215,24 @@ pub fn main() {
     let mut event_pump = sdl_context.event_pump().unwrap();
     let mut i = 0;
     'running: loop {
-        i = (i + 1) % 1024;
+        i = (i + 10) % 1024;
         for event in event_pump.poll_iter() {
             match event {
-                Event::Quit {..} |
-                Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
-                    break 'running
-                },
-                Event::KeyDown { keycode: Some(Keycode::Up), .. } => { zoom.down(); },
-                Event::KeyDown { keycode: Some(Keycode::Down), .. } => { zoom.up(); },
-                Event::KeyDown { keycode: Some(Keycode::Left), .. } => { zoom.left(); },
-                Event::KeyDown { keycode: Some(Keycode::Right), .. } => { zoom.right(); },
-                Event::KeyDown { keycode: Some(Keycode::KpPlus), .. } => { zoom.zoom_in(); },
-                Event::KeyDown { keycode: Some(Keycode::KpMinus), .. } => { zoom.zoom_out(); },
-                Event::KeyDown { keycode: x, ..  } => {
-                    println!( "Key: {x:?}" );
+                Event::Quit {..} => { break 'running; },
+                Event::KeyDown { keycode: Some(key), .. } => {
+                    match key {
+                        Keycode::Escape   => { break 'running; },
+                        Keycode::Up       => { zoom.down(); },
+                        Keycode::Down     => { zoom.up(); },
+                        Keycode::Left     => { zoom.left(); },
+                        Keycode::Right    => { zoom.right(); },
+                        Keycode::KpPlus   => { zoom.zoom_in(); },
+                        Keycode::KpMinus  => { zoom.zoom_out(); },
+                        Keycode::PageUp   => { zoom.more_iter(25); },
+                        Keycode::PageDown => { zoom.less_iter(25); },
+                        Keycode::Equals   => { zoom.print(); },
+                        _ => { println!( "Key: {key:?}" ) }
+                    }
                 },
                 _ => {}
             }
@@ -178,10 +243,12 @@ pub fn main() {
         // canvas.clear();
         // canvas.set_draw_color(Color::RGB(255, 255, 0));
         // canvas.draw_point(Point::new(40,40)).unwrap();
+
+        //::std::thread::sleep(Duration::new(0, 1_000_000_000u32));
+
         let offset = i as f64 / 1024.0;
-        draw_mandelbrot(&mut canvas, size, &zoom, offset);
+        draw_mandelbrot(&mut canvas, size, &mut zoom, offset );
         canvas.present();
 
-//        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
 }
