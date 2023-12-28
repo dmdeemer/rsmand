@@ -220,13 +220,19 @@ pub fn main() {
                 Event::KeyDown { keycode: Some(key), .. } => {
                     match key {
                         Keycode::Escape   => { break 'running; },
+                        Keycode::Kp8 |
                         Keycode::Up       => { zoom.down(); },
+                        Keycode::Kp2 |
                         Keycode::Down     => { zoom.up(); },
+                        Keycode::Kp4 |
                         Keycode::Left     => { zoom.left(); },
+                        Keycode::Kp6 |
                         Keycode::Right    => { zoom.right(); },
                         Keycode::KpPlus   => { zoom.zoom_in(); },
                         Keycode::KpMinus  => { zoom.zoom_out(); },
+                        Keycode::Kp9 |
                         Keycode::PageUp   => { zoom.more_iter(25); },
+                        Keycode::Kp3 |
                         Keycode::PageDown => { zoom.less_iter(25); },
                         Keycode::Equals   => { zoom.print(); },
                         _ => { println!( "Key: {key:?}" ) }
