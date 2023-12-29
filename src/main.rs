@@ -245,7 +245,7 @@ pub fn main() {
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} => { break 'running; },
-                Event::KeyDown { keycode: Some(key), keymod: m, repeat: false, .. } => {
+                Event::KeyDown { keycode: Some(key), keymod: m, .. } => {
                     match key {
                         Keycode::Q        => { if m == Mod::LCTRLMOD { break 'running; } },
                         Keycode::Escape   => { break 'running; },
