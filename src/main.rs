@@ -266,7 +266,7 @@ pub fn main() {
                         Keycode::Period   => { zoom.more_resolution(); },
                         Keycode::Comma    => { zoom.less_resolution(); },
                         Keycode::Equals   => { zoom.print(); },
-                        _ => { println!( "Key: {key:?} Mod: {m:?}" ) }
+                        _ => {}
                     }
                 },
                 _ => {}
