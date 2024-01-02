@@ -206,6 +206,20 @@ fn draw_mandelbrot( canvas: &mut Canvas<Window>, size: (u32,u32), zoom: &mut Zoo
     canvas.copy(&mut texture, None, None).unwrap();
 }
 
+pub fn normalize_mod(mut m: Mod) -> Mod {
+    // Convert RCTRL, RSHIFT, etc. to the Left versions
+    if m.contains(Mod::RALTMOD) { m.insert(Mod::LALTMOD); }
+    if m.contains(Mod::RSHIFTMOD) { m.insert(Mod::LSHIFTMOD); }
+    if m.contains(Mod::RCTRLMOD) { m.insert(Mod::LCTRLMOD); }
+    if m.contains(Mod::RGUIMOD) { m.insert(Mod::LGUIMOD); }
+
+    // Ignore anything other than CTRL, ALT, GUI, or SHIFT
+    m.intersection(Mod::LALTMOD
+        | Mod::LSHIFTMOD
+        | Mod::LCTRLMOD
+        | Mod::LGUIMOD)
+}
+
 pub fn main() {
     let sdl_context = sdl2::init().unwrap();
 
@@ -246,6 +260,8 @@ pub fn main() {
             match event {
                 Event::Quit {..} => { break 'running; },
                 Event::KeyDown { keycode: Some(key), keymod: m, .. } => {
+                    let m = normalize_mod(m);
+
                     match key {
                         Keycode::Q        => { if m == Mod::LCTRLMOD { break 'running; } },
                         Keycode::Escape   => { break 'running; },
